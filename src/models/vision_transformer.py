@@ -120,55 +120,6 @@ class VisualTransformer(nn.Module):
         return tokens
         
 
-if __name__ == "__main__":
-
-    import cv2
-    from torchvision.utils import make_grid
-    import matplotlib.pyplot as plt
-    plt.style.use("dark_background")
-
-
-    IMG_SIZE = (128, 128)
-    PATCH_SIZE = 32
-    HIDEN_FEATURES = 128
-    OUT_FEATURES = 312
-    HEADS = 10
-    IMG_PATH = "/home/ram/Downloads/Telegram Desktop/img2/0.png"
-    
-    # img = cv2.imread(IMG_PATH)
-    # img = cv2.resize(img, IMG_SIZE)
-    # img = th.Tensor(img)
-    # img = (img.to(th.float32) / 255.0).permute(2, 0, 1).unsqueeze(dim=0)
-    # img = img.unsqueeze(dim=1).repeat(1, 2, 1, 1, 1)
-    # print(img.size())
-    img = th.rand((64, 20, 3, IMG_SIZE[0], IMG_SIZE[1]))
-    img_tokenizer = VisualTransformer(
-        hiden_features=HIDEN_FEATURES,
-        out_features=OUT_FEATURES,
-        img_size=IMG_SIZE,
-        patch_size=PATCH_SIZE
-    )
-    # attention = Attention(
-    #     heads_n=HEADS,
-    #     dim=TOKENS_DIM,
-    #     proj_dim=ATT_DIM
-    # )
-    
-    tokens = img_tokenizer(img)
-    print(tokens.size())
-    # print(tokens.size(), img_patched.size())
-    # att = attention(tokens)
-    # print(img_patched.size(), tokens.size(), att.size())
-    # maps_grid = make_grid(img_patched[0, 0, ...], nrow=8).permute(1, 2, 0)
-    # print(maps_grid.size())
-
-    _, axis = plt.subplots()
-    # axis[0].imshow(maps_grid.detach().numpy())
-    axis.imshow(tokens[0, ...].detach().numpy(), cmap="inferno")
-    # axis[2].imshow(att[0, 0, ...].detach().numpy(), cmap="coolwarm")
-
-    plt.show()
-    
 
         
 

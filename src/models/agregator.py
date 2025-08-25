@@ -16,7 +16,7 @@ class Agregator(nn.Module):
         img_size: Tuple[int, int],
         out_features: Optional[int]=None,
         hiden_features: Optional[int]=None,
-        apply_film: Optional[bool]=False,
+        apply_film: Optional[bool]=True,
         act: Callable[..., nn.Module]=nn.GELU,
         block: Callable[..., nn.Module]=Block,
         vit: Callable[..., nn.Module]=VisualTransformer,
@@ -46,7 +46,7 @@ class Agregator(nn.Module):
         hiden_features = (
             hiden_features
             if hiden_features is not None
-            else hiden_features
+            else embedding_dim
         )
 
         self.vit = vit(**asdict(vit_cfg(

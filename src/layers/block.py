@@ -78,6 +78,7 @@ class Block(nn.Module):
 
     def forward(self, x: th.Tensor) -> th.Tensor:
 
+        print(x.size())
         x = self.fc_in(x)
         for idx in range(self.depth):
             x = self.mlp_layers[idx](x)
@@ -94,24 +95,3 @@ class Block(nn.Module):
         return x
 
 
-
-if __name__ == "__main__":
-
-    import matplotlib.pyplot as plt
-    plt.style.use("dark_background")
-
-
-    C = 512
-    BLOCK_DEPTH = 16
-    test = th.rand((10, 128, C))
-    block = Block(C, block_depth=BLOCK_DEPTH, return_features=True)
-    block_out, activations = block(test)
-    
-    _, axis = plt.subplots(nrows=BLOCK_DEPTH + 1)
-    axis[0].imshow(test[0, ...], cmap="coolwarm")
-    axis[1].imshow(block_out[0, ...].detach(), cmap="coolwarm")
-    for idx in range(2, BLOCK_DEPTH):
-        axis[idx].imshow(activations[idx][0, ...].detach(), cmap="coolwarm")
-
-    plt.show()
-    

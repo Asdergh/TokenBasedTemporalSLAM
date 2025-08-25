@@ -23,7 +23,6 @@ class PoseEncoding(nn.Module):
         div_term = (1 / 1000 ** (2 * th.arange(0, features) / features)).unsqueeze(dim=0)
         pose_enc = th.zeros(1, sequence_len, features)
 
-        print(positions.size(), div_term.size(), pose_enc[:, 0::2, :].size())
         pose_enc[:, 0::2, :] = th.sin(positions[0::2] * div_term)
         pose_enc[:, 1::2, :] = th.cos(positions[1::2] * div_term)
         self.register_buffer("pose_enc", pose_enc)
@@ -68,7 +67,6 @@ class Attention(nn.Module):
         self.M = mask
         self.heads_n = heads_n
 
-        print(out_features, in_features)
         self.fc_in = nn.Linear(in_features, hiden_features)
         self.fc_out = nn.Linear(hiden_features, out_features)
         self.qkv_proj = nn.ModuleList([
@@ -122,32 +120,7 @@ class Attention(nn.Module):
 
 
 
-if __name__ == "__main__":
 
-
-    import matplotlib.pyplot as plt
-    plt.style.use("dark_background")
-
-    B = 10
-    S = 120
-    C = 345
-    H = 170
-    test = th.rand(B, S, C)
-    ape = PoseEncoding()
-    attention = Attention(
-        in_features=C,
-        out_features=H,
-        drop_rate=0.32,
-        heads_n=12
-    )
-
-    test_out = attention(test)
-    print(test_out.size())
-    fig, axis = plt.subplots()
-    axis.imshow(test_out[0, ...].detach().numpy(), cmap="jet")
-    # fig.savefig("results.png")
-    plt.show()
-    # print(test_out.size(), tokens.size())
     
 
 
