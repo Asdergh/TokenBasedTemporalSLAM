@@ -1,6 +1,5 @@
 import torch as th
 import torch.nn as nn
-from dataclasses import asdict
 
 from src.layers.attention import Attention, PoseEncoding
 from src.layers.mlp import Mlp
@@ -45,7 +44,7 @@ class Block(nn.Module):
         self.depth = block_depth
         self.mlp_layers = nn.ModuleList([
             nn.Sequential(
-                mlp_fn(**asdict(mlp_cfg(hiden_features))),
+                mlp_fn(**mlp_cfg(hiden_features)._asdict()),
                 nn.Dropout(pad_rate),
                 fc_act()
             )
@@ -53,7 +52,7 @@ class Block(nn.Module):
         ])
         self.att_layers = nn.ModuleList([
             nn.Sequential(
-                att_fn(**asdict(att_cfg(hiden_features))),
+                att_fn(**att_cfg(hiden_features)._asdict()),
                 nn.Dropout(pad_rate),
                 att_act()
             )
@@ -78,7 +77,6 @@ class Block(nn.Module):
 
     def forward(self, x: th.Tensor) -> th.Tensor:
 
-        print(x.size())
         x = self.fc_in(x)
         for idx in range(self.depth):
             x = self.mlp_layers[idx](x)

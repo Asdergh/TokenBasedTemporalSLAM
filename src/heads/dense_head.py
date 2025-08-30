@@ -1,7 +1,7 @@
 import torch as th
 import torch.nn as nn
 
-from dataclasses import asdict
+
 from typing import Optional, Union, Callable, Tuple
 
 from src.layers.block import Block
@@ -24,16 +24,18 @@ class DptHead(nn.Module):
         fusion_act: Callable[..., nn.Module]=nn.GELU,
         fusion_norm: Callable[..., nn.Module]=nn.BatchNorm2d,
         ressable_norm: Callable[..., nn.Module]=nn.BatchNorm2d,
-        block_fn: Callable[..., nn.Module]=Block,
-        mlp: Callable[..., nn.Module]=Mlp,
         block_cfg: Optional[BlockConfig]=BlockConfig,
-        mlp_cfg: Optional[MlpConfig]=MlpConfig,
-        head_depth: Optional[int]=3,
-        drop_rate: Optional[float]=0.32,
+        head_depth: Optional[int]=4,
         return_features: Optional[bool]=False
     ) -> None:
         
+
         super().__init__()
+        hiden_features = (
+            hiden_features
+            if hiden_features is not None
+            else in_features
+        )
 
         self.w, self.h = img_size
         self.C_out = out_features
@@ -71,7 +73,7 @@ class DptHead(nn.Module):
             for idx in range(self.depth)
         ])
         self.transformer_blocks = nn.ModuleList(
-            block_fn(**asdict(block_cfg(in_features)))
+            Block(**block_cfg(in_features)._asdict())
             for _ in range(self.depth)
         )
 
@@ -122,19 +124,11 @@ class DptHead(nn.Module):
             tf_features.append(patch_x)
         
         prev_x = None
-        print(12 * "=", "FEATURES", 12 * "=")
-        print(tokens.view(B * S, C, self.ppr, self.ppr).size())
-        for feature in tf_features:
-            print(feature.size())
-        print(12 * "=", "FEATURES", 12 * "=")
-        
         for idx in range(self.depth):
             
             skip_x = tf_features[idx]
-            # print(x.size(), skip_x.size())
             x = self.fusion_units[idx](skip_x)
             if prev_x is not None:
-                print(x.size(), prev_x.size())
                 x = x + prev_x
 
             prev_x = self.ressable_res[0](x)
@@ -149,7 +143,33 @@ class DptHead(nn.Module):
             
         
 
+if __name__ == "__main__":
 
+    from src.models.agregator import Agregator
+
+    IMG_SIZE = (128, 128)
+    EMBEDDING_DIM = 32
+    TOKENS_DIM = 32
+    DPT_HIDEN_FEATURES = 32
+    DPT_OUT_FEATURES = 1
+    
+    agregator = Agregator(
+        img_size=IMG_SIZE,
+        embedding_dim=EMBEDDING_DIM,
+        hiden_features=32,
+        out_features=TOKENS_DIM
+    )
+    dpt_head = DptHead(
+        img_size=IMG_SIZE,
+        patch_size=16,
+        in_features=TOKENS_DIM * 2,
+        hiden_features=32,
+        out_features=3,
+        head_depth=4
+    )
+    
+
+  
 
 
 

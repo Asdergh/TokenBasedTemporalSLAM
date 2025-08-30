@@ -1,10 +1,14 @@
 import torch as th
 import torch.nn as nn
-from dataclasses import asdict
 
 from typing import Optional, Callable, Union, List, Tuple
 from src.layers.block import Block
-from src.configs import BlockConfig, VisualTransformerConfig
+from src.layers.mlp import Mlp
+from src.configs import (
+    BlockConfig, 
+    VisualTransformerConfig,
+    MlpConfig
+)
 from src.models.vision_transformer import VisualTransformer
 
 
@@ -14,26 +18,30 @@ class Agregator(nn.Module):
         self,
         embedding_dim: int,
         img_size: Tuple[int, int],
+        patch_size: int,
         out_features: Optional[int]=None,
         hiden_features: Optional[int]=None,
         apply_film: Optional[bool]=True,
         act: Callable[..., nn.Module]=nn.GELU,
-        block: Callable[..., nn.Module]=Block,
+        in_head: Callable[..., nn.Module]=Mlp,
+        out_head: Callable[..., nn.Module]=Mlp,
         vit: Callable[..., nn.Module]=VisualTransformer,
         block_cfg: Optional[BlockConfig]=BlockConfig,
         vit_cfg: Optional[VisualTransformerConfig]=VisualTransformerConfig,
+        in_head_cfg: Optional[MlpConfig]=MlpConfig,
+        out_head_cfg: Optional[MlpConfig]=MlpConfig,
         aa_order: Optional[List[str]]=["frame", "global"],
         aa_depth: Optional[int]=4,
         register_tokens_n: Optional[int]=4,
         return_features: Optional[bool]=False,
         add_norm: Callable[..., nn.Module]=nn.LayerNorm
-
     ) -> None:
         
 
         super().__init__()
         self.order = aa_order
         self.depth = aa_depth
+        print(self.depth)
 
         if return_features:
             self.features = []
@@ -49,26 +57,34 @@ class Agregator(nn.Module):
             else embedding_dim
         )
 
-        self.vit = vit(**asdict(vit_cfg(
+        self.vit = vit(**vit_cfg(
             img_size=img_size,
             out_features=embedding_dim,
-            hiden_features=hiden_features
-        )))
+            hiden_features=hiden_features,
+            patch_size=patch_size
+        )._asdict())
+
+        self.in_block = nn.ModuleList([
+            in_head(**in_head_cfg(
+                in_features=embedding_dim,
+                out_features=hiden_features
+            )._asdict())
+            for _ in range(2)
+        ])
+        self.out_block = nn.ModuleList([
+            out_head(**out_head_cfg(
+                in_features=hiden_features,
+                out_features=out_features
+            )._asdict())
+            for _ in range(2)
+        ])
         self.aa_blocks = nn.ModuleDict({
             "frame": nn.ModuleList([
-                block(**asdict(block_cfg(
-                    in_features=embedding_dim,
-                    out_features=self.out_features,
-                    hiden_features=hiden_features
-                ))) 
+                Block(**block_cfg(hiden_features)._asdict())
                 for _ in range(self.depth)
             ]),
             "global": nn.ModuleList([
-                block(**asdict(block_cfg(
-                    in_features=embedding_dim,
-                    out_features=self.out_features,
-                    hiden_features=hiden_features
-                ))) 
+                Block(**block_cfg(hiden_features)._asdict()) 
                 for _ in range(self.depth)
             ])
         })
@@ -81,7 +97,7 @@ class Agregator(nn.Module):
         
         self.camera_tokens = nn.Parameter(th.rand((1, 2, 1, embedding_dim)))
         self.register_tokens = nn.Parameter(th.rand((1, 2, register_tokens_n, embedding_dim)))
-        self.add_norm = add_norm(self.out_features)
+        self.add_norm = add_norm(hiden_features)
 
     def _apply_aa(
         self,
@@ -124,7 +140,6 @@ class Agregator(nn.Module):
         others = tokens[:, 1, ...].expand(B, S - 1, *tokens.size()[-2:])
         combined_tokens = th.cat([quary, others], dim=1)
         combined_tokens = combined_tokens.view(B * S, *combined_tokens.size()[-2:])
-    
 
         return combined_tokens
 
@@ -150,8 +165,9 @@ class Agregator(nn.Module):
             "frame": None,
             "global": None
         }
-        for aa_type in self.order:
+        for aa_idx, aa_type in enumerate(self.order):
             x = tokens
+            x = self.in_block[aa_idx](x)
             prev_x = None
             block = self.aa_blocks[aa_type]
             for idx in range(self.depth):
@@ -162,16 +178,20 @@ class Agregator(nn.Module):
                     idx=idx,
                     B=B, S=S, N=N, C=C
                 )
+                
                 if idx != 0:
                     x = prev_x + x
                     x = self.add_norm(x)
                 
                 prev_x = x
+            
+            x = self.out_block[aa_idx](x)
             outputs[aa_type] = x
         
         frame_tokens = outputs["frame"].view(B, S, N, self.out_features)
         global_tokens= outputs["global"].view(B, S, N, self.out_features)
         tokens = th.cat([frame_tokens, global_tokens], dim=-1)
+        
         
         return tokens
         
